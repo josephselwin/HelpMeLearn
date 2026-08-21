@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HelpMeLearn - AI Document Test Generator & Study Platform</title>
+  <meta name="description" content="Upload PDF or Word documents, auto-generate extensive multiple-choice tests with detailed explanations and document quotes, and take randomized practice exams anytime.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Background Glow FX -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- App Header / Navigation -->
+  <header class="app-header">
+    <div class="container header-container">
+      <div class="brand" id="brand-link">
+        <div class="brand-icon">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div class="brand-text">
+          <h1>HelpMeLearn</h1>
+          <span class="brand-tagline">AI Test Generator & Study Bank</span>
+        </div>
+      </div>
+
+      <!-- Quick Stats Header Bar -->
+      <div class="header-stats">
+        <div class="stat-badge" title="Total Documents Processed">
+          <i class="fa-regular fa-file-lines"></i>
+          <span id="stat-docs-count">0</span> Docs
+        </div>
+        <div class="stat-badge" title="Total MCQs Generated">
+          <i class="fa-solid fa-lightbulb"></i>
+          <span id="stat-questions-count">0</span> Questions
+        </div>
+        <div class="stat-badge" title="Tests Completed">
+          <i class="fa-solid fa-chart-line"></i>
+          <span id="stat-tests-count">0</span> Tests Taken
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="main-nav">
+        <button class="nav-btn active" id="nav-docs-btn" onclick="switchTab('docs')">
+          <i class="fa-solid fa-folder-open"></i> Documents
+        </button>
+        <button class="nav-btn" id="nav-quiz-btn" onclick="switchTab('quiz-config')">
+          <i class="fa-solid fa-pen-to-square"></i> Take Test
+        </button>
+        <button class="nav-btn" id="nav-history-btn" onclick="switchTab('history')">
+          <i class="fa-solid fa-clock-rotate-left"></i> History
+        </button>
+        <button class="nav-btn icon-only" id="nav-settings-btn" onclick="openSettingsModal()" title="AI Engine Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container main-content">
+    
+    <!-- Toast Notification Banner -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- TAB 1: DOCUMENTS & UPLOAD DASHBOARD -->
+    <section id="tab-docs" class="tab-pane active">
+      <div class="dashboard-grid">
+        
+        <!-- Left Panel: Drag & Drop Document Uploader -->
+        <div class="glass-card upload-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-cloud-arrow-up"></i> Upload Document</h2>
+            <p>Upload a PDF or Word file to generate a customized test bank.</p>
+          </div>
+
+          <form id="upload-form" onsubmit="handleUploadSubmit(event)">
+            <div class="drop-zone" id="drop-zone">
+              <input type="file" id="document-input" accept=".pdf,.docx,.txt" required onchange="handleFileSelect(event)">
+              <div class="drop-zone-content" id="drop-zone-content">
+                <div class="drop-icon">
+                  <i class="fa-solid fa-file-pdf text-pdf"></i>
+                  <i class="fa-solid fa-file-word text-word"></i>
+                </div>
+                <h3>Drag & Drop your document here</h3>
+                <p>Supports <strong>PDF (.pdf)</strong>, <strong>Word (.docx)</strong>, and <strong>Text (.txt)</strong> up to 25MB</p>
+                <button type="button" class="btn btn-secondary select-file-btn">Browse Files</button>
+              </div>
+              
+              <!-- File Selected State -->
+              <div class="file-preview hidden" id="file-preview">
+                <i class="fa-solid fa-file-circle-check preview-icon"></i>
+                <div class="preview-info">
+                  <span id="preview-filename" class="preview-name">document.pdf</span>
+                  <span id="preview-filesize" class="preview-size">1.2 MB</span>
+                </div>
+                <button type="button" class="btn-icon remove-file-btn" onclick="clearFileSelection(event)" title="Change file">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group mt-3">
+              <label for="doc-title-input">Document Custom Title (Optional)</label>
+              <input type="text" id="doc-title-input" class="form-control" placeholder="e.g. Biology Chapter 4 Study Guide">
+            </div>
+
+            <!-- Processing Loading Overlay -->
+            <div id="upload-loading" class="upload-loading hidden">
+              <div class="spinner"></div>
+              <div class="loading-status">
+                <h4 id="loading-step-title">Processing Document...</h4>
+                <p id="loading-step-desc">Extracting text and generating test bank questions...</p>
+              </div>
+            </div>
+
+            <button type="submit" id="upload-submit-btn" class="btn btn-primary btn-block mt-3">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Process & Generate Test Bank
+            </button>
+          </form>
+        </div>
+
+        <!-- Right Panel: Document Library -->
+        <div class="glass-card library-card">
+          <div class="card-header library-header">
+            <div>
+              <h2><i class="fa-solid fa-books"></i> Your Study Library</h2>
+              <p>Select a processed document to take tests or view question pools.</p>
+            </div>
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="doc-search-input" placeholder="Search documents..." oninput="filterDocuments()">
+            </div>
+          </div>
+
+          <div id="docs-list" class="docs-list">
+            <!-- Rendered dynamically by app.js -->
+            <div class="empty-state">
+              <i class="fa-solid fa-folder-open empty-icon"></i>
+              <h3>No Documents Processed Yet</h3>
+              <p>Upload your first PDF or Word document on the left to get started!</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: TEST CONFIGURATION -->
+    <section id="tab-quiz-config" class="tab-pane hidden">
+      <div class="glass-card quiz-config-card">
+        <div class="card-header text-center">
+          <h2><i class="fa-solid fa-sliders"></i> Configure Practice Test</h2>
+          <p>Choose your document and set your preferred test options.</p>
+        </div>
+
+        <form id="quiz-config-form" onsubmit="startTestSession(event)">
+          <div class="form-group">
+            <label for="config-doc-select">Select Document:</label>
+            <select id="config-doc-select" class="form-control" required onchange="updateConfigPreview()">
+              <!-- Options populated dynamically -->
+            </select>
+          </div>
+
+          <div class="doc-summary-box glass-panel mt-3 hidden" id="config-doc-summary">
+            <div class="summary-item">
+              <span class="label">Total Bank Questions:</span>
+              <span class="value" id="config-bank-total">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">Word Count:</span>
+              <span class="value" id="config-word-count">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">Previous Attempts:</span>
+              <span class="value" id="config-tests-taken">0</span>
+            </div>
+          </div>
+
+          <div class="form-group mt-4">
+            <label>Number of Questions for this Test:</label>
+            <div class="radio-pill-group">
+              <label class="radio-pill">
+                <input type="radio" name="question-count-opt" value="5" checked>
+                <span>5 Questions</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="question-count-opt" value="10">
+                <span>10 Questions</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="question-count-opt" value="20">
+                <span>20 Questions</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="question-count-opt" value="all">
+                <span>All Questions</span>
+              </label>
+            </div>
+            <small class="form-text text-muted"><i class="fa-solid fa-shuffle"></i> Questions will be randomly sampled and options shuffled each time you take the test.</small>
+          </div>
+
+          <div class="form-group mt-4">
+            <label class="checkbox-label">
+              <input type="checkbox" id="config-instant-feedback">
+              <span><strong>Instant Feedback Mode</strong> (Show correct answer & explanation immediately after answering each question)</span>
+            </label>
+          </div>
+
+          <div class="actions-group mt-4">
+            <button type="submit" class="btn btn-emerald btn-lg btn-block">
+              <i class="fa-solid fa-play"></i> Start Practice Exam Now
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 3: INTERACTIVE QUIZ ENGINE -->
+    <section id="tab-quiz-engine" class="tab-pane hidden">
+      <div class="glass-card quiz-engine-card">
+        <!-- Quiz Header Bar -->
+        <div class="quiz-engine-header">
+          <div class="quiz-doc-title">
+            <span class="doc-badge"><i class="fa-solid fa-file-lines"></i> <span id="quiz-doc-name">Document Title</span></span>
+            <span class="difficulty-badge" id="quiz-q-difficulty">Medium</span>
+          </div>
+
+          <div class="quiz-timer" id="quiz-timer-box">
+            <i class="fa-regular fa-clock"></i>
+            <span id="quiz-timer-text">00:00</span>
+          </div>
+        </div>
+
+        <!-- Quiz Progress Bar -->
+        <div class="quiz-progress-bar-container mt-3">
+          <div class="quiz-progress-fill" id="quiz-progress-fill" style="width: 0%;"></div>
+        </div>
+
+        <div class="quiz-meta-sub text-muted">
+          <span>Question <strong id="quiz-current-num">1</strong> of <strong id="quiz-total-num">10</strong></span>
+          <span id="quiz-answered-count">0/10 Answered</span>
+        </div>
+
+        <!-- Question Body Card -->
+        <div class="quiz-question-box mt-4">
+          <h3 id="quiz-question-text" class="question-text">Loading Question...</h3>
+
+          <div class="options-group mt-4" id="quiz-options-container">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Instant Feedback Panel (in Instant Feedback Mode) -->
+          <div id="quiz-instant-feedback-panel" class="feedback-panel hidden">
+            <div id="feedback-badge" class="feedback-badge">Correct!</div>
+            <div id="feedback-explanation" class="feedback-explanation"></div>
+            <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="openQuoteDrawerCurrent()">
+              <i class="fa-solid fa-quote-left"></i> View Document Reference Quote
+            </button>
+          </div>
+        </div>
+
+        <!-- Quiz Navigation Controls -->
+        <div class="quiz-controls mt-4">
+          <button type="button" class="btn btn-secondary" id="quiz-prev-btn" onclick="navigateQuizQuestion(-1)">
+            <i class="fa-solid fa-chevron-left"></i> Previous
+          </button>
+          
+          <div class="quiz-controls-right">
+            <button type="button" class="btn btn-secondary" id="quiz-next-btn" onclick="navigateQuizQuestion(1)">
+              Next <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <button type="button" class="btn btn-emerald" id="quiz-submit-btn" onclick="confirmSubmitQuiz()">
+              <i class="fa-solid fa-check-double"></i> Submit Test
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: TEST RESULTS & DETAILED REVIEW -->
+    <section id="tab-quiz-results" class="tab-pane hidden">
+      <div class="glass-card results-card">
+        <!-- Celebration Header -->
+        <div class="results-header text-center">
+          <div class="score-circle-wrapper">
+            <svg class="score-circle-svg" viewBox="0 0 120 120">
+              <circle class="circle-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="circle-progress" id="results-circle-progress" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+            </svg>
+            <div class="score-circle-text">
+              <span id="results-percentage" class="score-percent">0%</span>
+              <span class="score-label">Score</span>
+            </div>
+          </div>
+
+          <h2 id="results-title" class="mt-3">Test Completed!</h2>
+          <p id="results-subtitle">Here is your detailed question breakdown and document explanations.</p>
+
+          <div class="results-stats-row mt-3">
+            <div class="res-stat">
+              <span class="res-val text-emerald" id="results-correct-count">0</span>
+              <span class="res-lbl">Correct</span>
+            </div>
+            <div class="res-stat">
+              <span class="res-val text-rose" id="results-incorrect-count">0</span>
+              <span class="res-lbl">Incorrect</span>
+            </div>
+            <div class="res-stat">
+              <span class="res-val" id="results-time-text">0s</span>
+              <span class="res-lbl">Time Taken</span>
+            </div>
+          </div>
+
+          <div class="results-actions mt-4">
+            <button class="btn btn-primary" onclick="switchTab('quiz-config')">
+              <i class="fa-solid fa-arrow-rotate-left"></i> Retake Test (New Questions)
+            </button>
+            <button class="btn btn-secondary" onclick="switchTab('docs')">
+              <i class="fa-solid fa-folder"></i> Back to Documents
+            </button>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Detailed Question by Question Review -->
+        <div class="results-review-section">
+          <h3><i class="fa-solid fa-list-check"></i> Answer Review & Document Citations</h3>
+          <p class="text-muted mb-4">Click any question to see detailed explanations and verbatim quotes from the original document.</p>
+
+          <div id="results-review-list" class="results-review-list">
+            <!-- Dynamic accordion elements -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: TEST HISTORY -->
+    <section id="tab-history" class="tab-pane hidden">
+      <div class="glass-card history-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-chart-line"></i> Test Performance History</h2>
+          <p>Track your past scores and study progress across all document tests.</p>
+        </div>
+
+        <div id="history-list" class="history-list mt-3">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SIDE DRAWER FOR DOCUMENT QUOTE REFERENCE -->
+  <div id="quote-drawer-overlay" class="drawer-overlay hidden" onclick="closeQuoteDrawer()"></div>
+  <aside id="quote-drawer" class="quote-drawer">
+    <div class="drawer-header">
+      <h3><i class="fa-solid fa-quote-left"></i> Document Citation Reference</h3>
+      <button class="btn-icon close-drawer-btn" onclick="closeQuoteDrawer()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="drawer-body">
+      <div class="quote-box glass-panel">
+        <i class="fa-solid fa-bookmark quote-mark"></i>
+        <blockquote id="drawer-quote-text">
+          "Extracting relevant excerpt from document..."
+        </blockquote>
+      </div>
+      <div class="mt-4">
+        <h4><i class="fa-solid fa-circle-info"></i> Context Explanation</h4>
+        <p id="drawer-explanation-text" class="text-muted mt-2"></p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- DOCUMENT QUESTIONS MODAL -->
+  <div id="doc-questions-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-doc-title">Document Question Pool</h3>
+        <button class="btn-icon" onclick="closeDocQuestionsModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="modal-doc-questions-body">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- AI SETTINGS MODAL -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-sliders"></i> AI Engine & Azure Settings</h3>
+        <button class="btn-icon" onclick="closeSettingsModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="settings-form" onsubmit="saveSettings(event)">
+          <div class="form-group">
+            <label for="setting-provider">AI Provider Engine:</label>
+            <select id="setting-provider" class="form-control" onchange="toggleProviderSettings()">
+              <option value="offline">⚡ Smart Offline Engine (Free - No API Key required)</option>
+              <option value="openai">OpenAI API (GPT-4o / GPT-4o-mini)</option>
+              <option value="gemini">Google Gemini API (Gemini 1.5 Flash)</option>
+              <option value="azure">Azure OpenAI Service (Free Tier / Azure Key)</option>
+            </select>
+          </div>
+
+          <div id="api-key-group" class="form-group mt-3 hidden">
+            <label for="setting-apikey">API Key:</label>
+            <input type="password" id="setting-apikey" class="form-control" placeholder="Enter API Key">
+            <small class="form-text text-muted">Stored securely on server in SQLite database.</small>
+          </div>
+
+          <div id="azure-group" class="hidden">
+            <div class="form-group mt-3">
+              <label for="setting-azure-endpoint">Azure OpenAI Endpoint:</label>
+              <input type="text" id="setting-azure-endpoint" class="form-control" placeholder="https://your-resource.openai.azure.com">
+            </div>
+            <div class="form-group mt-3">
+              <label for="setting-azure-deployment">Deployment Name:</label>
+              <input type="text" id="setting-azure-deployment" class="form-control" placeholder="e.g. gpt-4o-mini">
+            </div>
+          </div>
+
+          <div class="modal-footer mt-4">
+            <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-triangle-exclamation text-rose"></i> Delete Document</h3>
+        <button class="btn-icon" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete <strong id="delete-doc-name">this document</strong>?</p>
+        <p class="text-muted small mt-2">This will permanently remove the document, its test bank questions, and all test attempt history.</p>
+        <div class="modal-footer mt-4">
+          <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+          <button id="confirm-delete-btn" class="btn btn-rose">Delete Permanently</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App Code -->
+  <script src="js/app.js"></script>
+</body>
+</html>

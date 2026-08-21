@@ -1,0 +1,19 @@
+Cloud Computing Fundamentals and Azure Free Tier Architecture
+
+Cloud computing is defined as the delivery of computing services—including servers, storage, databases, networking, software, analytics, and intelligence—over the Internet ("the cloud") to offer faster innovation, flexible resources, and economies of scale.
+
+1. Key Cloud Service Models
+- Infrastructure as a Service (IaaS): Contains the basic building blocks for cloud IT. It typically provides access to networking features, computers (virtual or on dedicated hardware), and data storage space.
+- Platform as a Service (PaaS): Removes the need for you to manage underlying infrastructure (usually hardware and operating systems) and allows you to focus on the deployment and management of your applications. Azure App Service is a prime example of PaaS.
+- Software as a Service (SaaS): Provides you with a completed product that is run and operated by the service provider. In most cases, people referring to SaaS are referring to end-user applications such as Microsoft 365 or Salesforce.
+
+2. Azure App Service Free F1 Tier
+Azure App Service is an HTTP-based service for hosting web applications, REST APIs, and mobile backends. You can develop in your favorite language, be it .NET, .NET Core, Java, Ruby, Node.js, PHP, or Python.
+The Azure Free F1 tier provides 60 minutes of CPU time per day across all apps in the App Service Plan and up to 1 GB of RAM and 1 GB of storage. It is ideal for lightweight NodeJS web applications and static sites.
+
+3. SQLite Database Architecture
+SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine. Unlike most other SQL databases, SQLite does not have a separate server process. SQLite reads and writes directly to ordinary disk files. A complete SQL database with multiple tables, indices, triggers, and views is contained in a single disk file.
+Because SQLite requires zero external server configuration, it runs with zero hosting cost inside Azure App Service Linux and Windows instances.
+
+4. Educational Multiple Choice Question Design
+Multiple Choice Questions (MCQs) consist of a stem, a correct answer (key), and incorrect alternatives called distractors. Good distractors should be plausible to learners who have not mastered the material, while remaining unambiguously incorrect to learners who have understood the text. Effective explanation feedback must provide direct verbatim quotes from the original source document to reinforce learning retention.
