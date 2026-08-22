@@ -2,8 +2,11 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const dataDir = path.join(__dirname, 'data');
-const uploadsDir = path.join(__dirname, 'uploads');
+// On Azure App Service, process.env.HOME points to /home which is persistent storage.
+// This guarantees database & uploads survive code updates and CI/CD deployments!
+const isAzure = Boolean(process.env.HOME && fs.existsSync('/home/site'));
+const dataDir = process.env.DATA_DIR || (isAzure ? '/home/site/data' : path.join(__dirname, 'data'));
+const uploadsDir = process.env.UPLOADS_DIR || (isAzure ? '/home/site/uploads' : path.join(__dirname, 'uploads'));
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
