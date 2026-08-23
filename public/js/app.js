@@ -1,32 +1,156 @@
-/**
- * HelpMeLearn - SPA Frontend Client Logic
- */
-
 // Application State
 const state = {
   documents: [],
   history: [],
+  whitelist: [],
   selectedFile: null,
   activeDoc: null,
   testSession: null,
   timerInterval: null,
   pendingDeleteDocId: null,
-  activeDrawerQuote: null
+  activeDrawerQuote: null,
+  currentUser: null
 };
 
 // DOM Initialization
 document.addEventListener('DOMContentLoaded', () => {
   initDragAndDrop();
-  fetchDocuments();
-  fetchHistory();
-  fetchSettings();
+  checkAuthSession();
 });
+
+/**
+ * Check Authentication Session
+ */
+async function checkAuthSession() {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+
+    if (data.authenticated && data.user) {
+      state.currentUser = data.user;
+      renderUserProfile(data.user);
+      document.getElementById('auth-overlay').classList.add('hidden');
+
+      // Unhide Whitelist Admin tab if user is admin
+      if (data.user.role === 'admin') {
+        document.getElementById('nav-users-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('nav-users-btn').classList.add('hidden');
+      }
+
+      fetchDocuments();
+      fetchHistory();
+      fetchSettings();
+    } else {
+      state.currentUser = null;
+      document.getElementById('auth-overlay').classList.remove('hidden');
+      document.getElementById('user-profile-bar').classList.add('hidden');
+      initGoogleLogin();
+    }
+  } catch (err) {
+    console.error('[Auth Check Error]', err);
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    initGoogleLogin();
+  }
+}
+
+/**
+ * Initialize Google Identity SDK Sign-In Button
+ */
+async function initGoogleLogin() {
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+    setTimeout(initGoogleLogin, 500);
+    return;
+  }
+
+  let clientId = window.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    try {
+      const res = await fetch('/api/auth/config');
+      const data = await res.json();
+      clientId = data.googleClientId;
+      window.GOOGLE_CLIENT_ID = clientId;
+    } catch (e) {}
+  }
+
+  if (!clientId) {
+    document.getElementById('auth-error-banner').classList.remove('hidden');
+    document.getElementById('auth-error-text').innerHTML = 'Google Client ID not configured. Set <strong>GOOGLE_CLIENT_ID</strong> in <code>.env</code> file.';
+    return;
+  }
+
+  document.getElementById('auth-error-banner').classList.add('hidden');
+
+  google.accounts.id.initialize({
+    client_id: clientId,
+    callback: handleGoogleCredentialResponse,
+    auto_select: false
+  });
+
+  google.accounts.id.renderButton(
+    document.getElementById("google-signin-btn"),
+    { theme: "outline", size: "large", shape: "pill", logo_alignment: "left" }
+  );
+}
+
+/**
+ * Google Sign-In Credential Callback Handler
+ */
+async function handleGoogleCredentialResponse(response) {
+  try {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('auth-error-banner').classList.remove('hidden');
+      document.getElementById('auth-error-text').textContent = data.message || data.error;
+      return;
+    }
+
+    document.getElementById('auth-error-banner').classList.add('hidden');
+    showToast(`Welcome back, ${data.user.name}!`);
+    checkAuthSession();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function renderUserProfile(user) {
+  const profileBar = document.getElementById('user-profile-bar');
+  profileBar.classList.remove('hidden');
+
+  document.getElementById('user-display-name').textContent = user.name;
+  document.getElementById('user-role-badge').textContent = user.role;
+
+  const avatarImg = document.getElementById('user-avatar');
+  if (user.picture) {
+    avatarImg.src = user.picture;
+    avatarImg.style.display = 'block';
+  } else {
+    avatarImg.style.display = 'none';
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    showToast('Signed out successfully.');
+    checkAuthSession();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
 
 /**
  * Navigation Tab Switcher
  */
 function switchTab(tabId) {
-  const tabs = ['docs', 'quiz-config', 'quiz-engine', 'quiz-results', 'history'];
+  const tabs = ['docs', 'quiz-config', 'quiz-engine', 'quiz-results', 'history', 'users'];
   tabs.forEach(t => {
     const pane = document.getElementById(`tab-${t}`);
     const navBtn = document.getElementById(`nav-${t}-btn`);
@@ -52,6 +176,8 @@ function switchTab(tabId) {
     populateDocSelect();
   } else if (tabId === 'history') {
     fetchHistory();
+  } else if (tabId === 'users') {
+    fetchWhitelist();
   }
 }
 
@@ -206,10 +332,18 @@ function renderDocumentsList(docs) {
     return;
   }
 
+  const currentUserEmail = state.currentUser ? state.currentUser.email.toLowerCase() : '';
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+
   container.innerHTML = docs.map(doc => {
     const isPdf = doc.mime_type.includes('pdf') || doc.original_name.endsWith('.pdf');
     const fileIcon = isPdf ? 'fa-file-pdf text-pdf' : 'fa-file-word text-word';
     const dateStr = new Date(doc.created_at).toLocaleDateString();
+
+    const docOwner = (doc.owner_email || '').toLowerCase();
+    const isOwner = docOwner === currentUserEmail;
+    const canDelete = isAdmin || isOwner || !doc.owner_email;
+    const uploaderLabel = isOwner ? 'You' : (doc.owner_email ? doc.owner_email.split('@')[0] : 'Shared');
 
     return `
       <div class="doc-card">
@@ -221,7 +355,7 @@ function renderDocumentsList(docs) {
             <h3>${escapeHtml(doc.title)}</h3>
             <div class="doc-meta">
               <span><i class="fa-solid fa-lightbulb text-emerald"></i> <strong>${doc.question_count}</strong> Questions</span>
-              <span><i class="fa-solid fa-file-lines"></i> ${doc.word_count || 0} Words</span>
+              <span><i class="fa-solid fa-user"></i> By ${escapeHtml(uploaderLabel)}</span>
               <span><i class="fa-regular fa-clock"></i> ${dateStr}</span>
             </div>
           </div>
@@ -234,9 +368,11 @@ function renderDocumentsList(docs) {
           <button class="btn btn-secondary btn-sm" onclick="openDocQuestionsModal(${doc.id})" title="View Question Pool">
             <i class="fa-solid fa-eye"></i> Questions
           </button>
-          <button class="btn-icon" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" title="Delete Document & Tests">
-            <i class="fa-solid fa-trash-can text-rose"></i>
-          </button>
+          ${canDelete ? `
+            <button class="btn-icon" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" title="Delete Document & Tests">
+              <i class="fa-solid fa-trash-can text-rose"></i>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;
@@ -728,6 +864,10 @@ async function fetchSettings() {
     const res = await fetch('/api/settings');
     const settings = await res.json();
     document.getElementById('setting-provider').value = settings.provider || 'offline';
+    if (settings.googleClientId) {
+      document.getElementById('setting-google-client-id').value = settings.googleClientId;
+      window.GOOGLE_CLIENT_ID = settings.googleClientId;
+    }
     toggleProviderSettings();
   } catch (e) {
     console.error('Settings fetch error:', e);
@@ -740,18 +880,119 @@ async function saveSettings(e) {
   const apiKey = document.getElementById('setting-apikey').value;
   const azureEndpoint = document.getElementById('setting-azure-endpoint').value;
   const azureDeployment = document.getElementById('setting-azure-deployment').value;
+  const googleClientId = document.getElementById('setting-google-client-id').value;
 
   try {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, apiKey, azureEndpoint, azureDeployment })
+      body: JSON.stringify({ provider, apiKey, azureEndpoint, azureDeployment, googleClientId })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    showToast('AI Settings updated!');
+    if (googleClientId) {
+      window.GOOGLE_CLIENT_ID = googleClientId;
+      initGoogleLogin();
+    }
+
+    showToast('Settings updated successfully!');
     closeSettingsModal();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ----------------------------------------------------
+// Admin Whitelist Management UI
+// ----------------------------------------------------
+async function fetchWhitelist() {
+  try {
+    const res = await fetch('/api/auth/whitelist');
+    const users = await res.json();
+    if (!res.ok) throw new Error(users.error);
+
+    state.whitelist = users;
+    renderWhitelist(users);
+  } catch (err) {
+    console.error('Fetch whitelist error:', err);
+  }
+}
+
+function renderWhitelist(users) {
+  const tbody = document.getElementById('whitelist-tbody');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No users in whitelist. Click "Grant Access to User" to add emails.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const dateStr = new Date(u.created_at).toLocaleDateString();
+    const isSelf = state.currentUser && state.currentUser.email.toLowerCase() === u.email.toLowerCase();
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.email)}</strong></td>
+        <td>${escapeHtml(u.name || '-')}</td>
+        <td><span class="badge ${u.role === 'admin' ? 'text-emerald' : 'text-muted'}">${u.role.toUpperCase()}</span></td>
+        <td>${dateStr}</td>
+        <td>
+          ${!isSelf ? `
+            <button class="btn-icon" onclick="revokeAccess(${u.id}, '${escapeJsString(u.email)}')" title="Revoke Access">
+              <i class="fa-solid fa-user-minus text-rose"></i>
+            </button>
+          ` : '<span class="small text-muted">(You)</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openAddUserModal() {
+  document.getElementById('add-user-modal').classList.remove('hidden');
+}
+
+function closeAddUserModal() {
+  document.getElementById('add-user-modal').classList.add('hidden');
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-name').value = '';
+}
+
+async function handleAddUserSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('new-user-email').value;
+  const name = document.getElementById('new-user-name').value;
+  const role = document.getElementById('new-user-role').value;
+
+  try {
+    const res = await fetch('/api/auth/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, role })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message);
+    closeAddUserModal();
+    fetchWhitelist();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function revokeAccess(userId, email) {
+  if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
+
+  try {
+    const res = await fetch(`/api/auth/whitelist/${userId}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message);
+    fetchWhitelist();
   } catch (err) {
     showToast(err.message, 'error');
   }

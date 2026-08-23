@@ -40,9 +40,15 @@ db.serialize(() => {
       text_content TEXT,
       word_count INTEGER DEFAULT 0,
       question_count INTEGER DEFAULT 0,
+      owner_email TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration helper if owner_email column doesn't exist on older SQLite databases
+  db.run('ALTER TABLE documents ADD COLUMN owner_email TEXT', (err) => {
+    // Ignore error if column already exists
+  });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS questions (
@@ -81,6 +87,28 @@ db.serialize(() => {
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS allowed_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT,
+      role TEXT DEFAULT 'user',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      picture TEXT,
+      role TEXT DEFAULT 'user',
+      expires_at INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 });

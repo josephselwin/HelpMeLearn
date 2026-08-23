@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <!-- Background Glow FX -->
@@ -22,7 +24,7 @@
   <!-- App Header / Navigation -->
   <header class="app-header">
     <div class="container header-container">
-      <div class="brand" id="brand-link">
+      <div class="brand" id="brand-link" onclick="switchTab('docs')" style="cursor: pointer;" title="Back to Home / Documents">
         <div class="brand-icon">
           <i class="fa-solid fa-graduation-cap"></i>
         </div>
@@ -30,6 +32,18 @@
           <h1>HelpMeLearn</h1>
           <span class="brand-tagline">AI Test Generator & Study Bank</span>
         </div>
+      </div>
+
+      <!-- User Profile Header & Logout -->
+      <div class="user-profile-bar hidden" id="user-profile-bar">
+        <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
+        <div class="user-info-text">
+          <span id="user-display-name" class="user-name">User Name</span>
+          <span id="user-role-badge" class="badge-role">User</span>
+        </div>
+        <button class="btn-icon" onclick="handleLogout()" title="Sign Out">
+          <i class="fa-solid fa-right-from-bracket text-rose"></i>
+        </button>
       </div>
 
       <!-- Quick Stats Header Bar -->
@@ -58,6 +72,9 @@
         </button>
         <button class="nav-btn" id="nav-history-btn" onclick="switchTab('history')">
           <i class="fa-solid fa-clock-rotate-left"></i> History
+        </button>
+        <button class="nav-btn hidden" id="nav-users-btn" onclick="switchTab('users')">
+          <i class="fa-solid fa-users-gear"></i> Provision Users
         </button>
         <button class="nav-btn icon-only" id="nav-settings-btn" onclick="openSettingsModal()" title="AI Engine Settings">
           <i class="fa-solid fa-gear"></i>
@@ -359,7 +376,101 @@
       </div>
     </section>
 
+    <!-- TAB 6: ADMIN USER PROVISIONING -->
+    <section id="tab-users" class="tab-pane hidden">
+      <div class="glass-card users-card">
+        <div class="card-header flex-between">
+          <div>
+            <h2><i class="fa-solid fa-users-gear text-emerald"></i> Provisioned Users & Access Control</h2>
+            <p>Only users added to this list can sign in and use HelpMeLearn.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openAddUserModal()">
+            <i class="fa-solid fa-user-plus"></i> Grant Access to User
+          </button>
+        </div>
+
+        <div class="table-responsive mt-3">
+          <table class="custom-table" id="whitelist-table">
+            <thead>
+              <tr>
+                <th>Email Address</th>
+                <th>Name / Note</th>
+                <th>Role</th>
+                <th>Granted On</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="whitelist-tbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- AUTHENTICATION OVERLAY (UNAUTHENTICATED VISITORS) -->
+  <div id="auth-overlay" class="modal-overlay hidden" style="z-index: 999; backdrop-filter: blur(16px); background: rgba(11, 15, 25, 0.92);">
+    <div class="modal-card modal-sm text-center" style="padding: 2.5rem 2rem;">
+      <div class="brand-icon mx-auto mb-3" style="width: 56px; height: 56px; font-size: 1.8rem; margin: 0 auto 1rem auto;">
+        <i class="fa-solid fa-graduation-cap"></i>
+      </div>
+      <h2>Welcome to HelpMeLearn</h2>
+      <p class="mt-2 text-muted">AI Document Test Generator & Study Bank</p>
+
+      <div class="auth-security-badge mt-4">
+        <i class="fa-solid fa-lock text-emerald"></i>
+        <span>Restricted Access — Provisioned Users Only</span>
+      </div>
+
+      <div id="auth-error-banner" class="auth-error-banner hidden mt-3">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span id="auth-error-text">Your email address has not been provisioned by an administrator.</span>
+      </div>
+
+      <div class="google-btn-container mt-4" id="google-login-box">
+        <!-- Google One-Tap / Sign-In Button Container -->
+        <div id="g_id_onload"></div>
+        <div id="google-signin-btn" class="flex-center"></div>
+      </div>
+
+      <p class="small text-muted mt-4">Sign in with your authorized Google or Microsoft account to continue.</p>
+    </div>
+  </div>
+
+  <!-- ADD USER MODAL -->
+  <div id="add-user-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-plus text-emerald"></i> Provision New User</h3>
+        <button class="btn-icon" onclick="closeAddUserModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-user-form" onsubmit="handleAddUserSubmit(event)">
+          <div class="form-group">
+            <label for="new-user-email">Email Address:</label>
+            <input type="email" id="new-user-email" class="form-control" placeholder="user@gmail.com or colleague@company.com" required>
+          </div>
+          <div class="form-group mt-3">
+            <label for="new-user-name">Name (Optional):</label>
+            <input type="text" id="new-user-name" class="form-control" placeholder="e.g. John Doe">
+          </div>
+          <div class="form-group mt-3">
+            <label for="new-user-role">Role:</label>
+            <select id="new-user-role" class="form-control">
+              <option value="user">User (Access & Take Tests)</option>
+              <option value="admin">Admin (Manage Users & AI Settings)</option>
+            </select>
+          </div>
+          <div class="modal-footer mt-4">
+            <button type="button" class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+            <button type="submit" class="btn btn-emerald">Grant Access</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- SIDE DRAWER FOR DOCUMENT QUOTE REFERENCE -->
   <div id="quote-drawer-overlay" class="drawer-overlay hidden" onclick="closeQuoteDrawer()"></div>
@@ -431,6 +542,14 @@
               <label for="setting-azure-deployment">Deployment Name:</label>
               <input type="text" id="setting-azure-deployment" class="form-control" placeholder="e.g. gpt-4o-mini">
             </div>
+          </div>
+
+          <hr class="divider mt-4 mb-3">
+
+          <div class="form-group">
+            <label for="setting-google-client-id"><i class="fa-brands fa-google text-emerald"></i> Google OAuth Client ID:</label>
+            <input type="text" id="setting-google-client-id" class="form-control" placeholder="1234567890-xyz.apps.googleusercontent.com">
+            <small class="form-text text-muted">Obtain for free from Google Cloud Console (APIs & Services ➔ Credentials).</small>
           </div>
 
           <div class="modal-footer mt-4">
