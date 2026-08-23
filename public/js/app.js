@@ -31,11 +31,13 @@ async function checkAuthSession() {
       renderUserProfile(data.user);
       document.getElementById('auth-overlay').classList.add('hidden');
 
-      // Unhide Whitelist Admin tab if user is admin
+      // Unhide Whitelist Admin tab and Settings button if user is admin
       if (data.user.role === 'admin') {
         document.getElementById('nav-users-btn').classList.remove('hidden');
+        document.getElementById('nav-settings-btn').classList.remove('hidden');
       } else {
         document.getElementById('nav-users-btn').classList.add('hidden');
+        document.getElementById('nav-settings-btn').classList.add('hidden');
       }
 
       fetchDocuments();
