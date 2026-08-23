@@ -35,9 +35,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`====================================================`);
-  console.log(`🚀 HelpMeLearn server running on http://localhost:${PORT}`);
-  console.log(`☁️  Azure Free Tier App Service Ready`);
+  console.log(`🚀 HelpMeLearn server running!`);
+  console.log(`💻 Local:   http://localhost:${PORT}`);
+  console.log(`📱 Mobile:  http://10.0.0.50:${PORT}`);
   console.log(`====================================================`);
 });
