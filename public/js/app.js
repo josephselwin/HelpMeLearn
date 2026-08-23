@@ -332,10 +332,18 @@ function renderDocumentsList(docs) {
     return;
   }
 
+  const currentUserEmail = state.currentUser ? state.currentUser.email.toLowerCase() : '';
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+
   container.innerHTML = docs.map(doc => {
     const isPdf = doc.mime_type.includes('pdf') || doc.original_name.endsWith('.pdf');
     const fileIcon = isPdf ? 'fa-file-pdf text-pdf' : 'fa-file-word text-word';
     const dateStr = new Date(doc.created_at).toLocaleDateString();
+
+    const docOwner = (doc.owner_email || '').toLowerCase();
+    const isOwner = docOwner === currentUserEmail;
+    const canDelete = isAdmin || isOwner || !doc.owner_email;
+    const uploaderLabel = isOwner ? 'You' : (doc.owner_email ? doc.owner_email.split('@')[0] : 'Shared');
 
     return `
       <div class="doc-card">
@@ -347,7 +355,7 @@ function renderDocumentsList(docs) {
             <h3>${escapeHtml(doc.title)}</h3>
             <div class="doc-meta">
               <span><i class="fa-solid fa-lightbulb text-emerald"></i> <strong>${doc.question_count}</strong> Questions</span>
-              <span><i class="fa-solid fa-file-lines"></i> ${doc.word_count || 0} Words</span>
+              <span><i class="fa-solid fa-user"></i> By ${escapeHtml(uploaderLabel)}</span>
               <span><i class="fa-regular fa-clock"></i> ${dateStr}</span>
             </div>
           </div>
@@ -360,9 +368,11 @@ function renderDocumentsList(docs) {
           <button class="btn btn-secondary btn-sm" onclick="openDocQuestionsModal(${doc.id})" title="View Question Pool">
             <i class="fa-solid fa-eye"></i> Questions
           </button>
-          <button class="btn-icon" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" title="Delete Document & Tests">
-            <i class="fa-solid fa-trash-can text-rose"></i>
-          </button>
+          ${canDelete ? `
+            <button class="btn-icon" onclick="openDeleteModal(${doc.id}, '${escapeHtml(doc.title)}')" title="Delete Document & Tests">
+              <i class="fa-solid fa-trash-can text-rose"></i>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;

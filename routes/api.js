@@ -7,6 +7,7 @@ const fs = require('fs');
 const { dbQuery, uploadsDir } = require('../database');
 const { extractTextFromDocument } = require('../services/docParser');
 const { generateQuestionsFromText } = require('../services/aiGenerator');
+const { getSessionFromReq } = require('./auth');
 
 // Multer storage setup
 const storage = multer.diskStorage({
@@ -55,17 +56,19 @@ router.post('/upload', upload.single('document'), async (req, res) => {
 
     const { originalname, path: filePath, mimetype, size } = req.file;
     const documentTitle = req.body.title || path.basename(originalname, path.extname(originalname));
+    const session = await getSessionFromReq(req);
+    const ownerEmail = session ? session.email : (req.body.owner_email || 'system');
 
-    console.log(`[Upload] Processing "${documentTitle}" (${mimetype}, ${size} bytes)`);
+    console.log(`[Upload] Processing "${documentTitle}" uploaded by ${ownerEmail} (${mimetype}, ${size} bytes)`);
 
     // Step A: Extract Text
     const { text, wordCount } = await extractTextFromDocument(filePath, mimetype);
 
-    // Step B: Save Document to DB
+    // Step B: Save Document to DB with owner_email
     const docResult = await dbQuery.run(
-      `INSERT INTO documents (title, original_name, file_path, mime_type, file_size, text_content, word_count)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [documentTitle, originalname, filePath, mimetype, size, text, wordCount]
+      `INSERT INTO documents (title, original_name, file_path, mime_type, file_size, text_content, word_count, owner_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [documentTitle, originalname, filePath, mimetype, size, text, wordCount, ownerEmail]
     );
 
     const documentId = docResult.lastID;
@@ -166,6 +169,19 @@ router.delete('/documents/:id', async (req, res) => {
 
     if (!doc) {
       return res.status(404).json({ error: 'Document not found.' });
+    }
+
+    // Ownership Verification: Only the uploader or an admin can delete the document/test bank
+    const session = await getSessionFromReq(req);
+    const userEmail = session ? session.email.toLowerCase() : '';
+    const userRole = session ? session.role : '';
+    const docOwner = (doc.owner_email || '').toLowerCase();
+
+    if (userRole !== 'admin' && docOwner && userEmail !== docOwner) {
+      return res.status(403).json({
+        error: 'Permission Denied',
+        message: 'You can only delete documents that you uploaded.'
+      });
     }
 
     // Delete physical file
