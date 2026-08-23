@@ -7,10 +7,14 @@ const { dbQuery } = require('../database');
 // ----------------------------------------------------
 // 0. Public Auth Config
 // ----------------------------------------------------
-router.get('/config', (req, res) => {
-  res.json({
-    googleClientId: process.env.GOOGLE_CLIENT_ID || ''
-  });
+router.get('/config', async (req, res) => {
+  try {
+    const dbSetting = await dbQuery.get('SELECT value FROM settings WHERE key = "googleClientId"');
+    const clientId = (dbSetting && dbSetting.value) || process.env.GOOGLE_CLIENT_ID || '';
+    res.json({ googleClientId: clientId });
+  } catch (e) {
+    res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || '' });
+  }
 });
 
 /**

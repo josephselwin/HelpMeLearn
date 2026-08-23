@@ -337,7 +337,8 @@ router.get('/settings', async (req, res) => {
       hasOpenAIKey: Boolean(settings.apiKey || process.env.OPENAI_API_KEY),
       hasGeminiKey: Boolean(settings.apiKey || process.env.GEMINI_API_KEY),
       model: settings.model || defaultModel,
-      azureEndpoint: settings.azureEndpoint || ''
+      azureEndpoint: settings.azureEndpoint || '',
+      googleClientId: settings.googleClientId || process.env.GOOGLE_CLIENT_ID || ''
     };
     res.json(safeSettings);
   } catch (err) {
@@ -347,7 +348,7 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', async (req, res) => {
   try {
-    const { provider, apiKey, model, azureEndpoint, azureDeployment } = req.body;
+    const { provider, apiKey, model, azureEndpoint, azureDeployment, googleClientId } = req.body;
 
     if (provider) await dbQuery.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['provider', provider]);
     if (apiKey !== undefined && apiKey !== '') {
@@ -359,6 +360,7 @@ router.post('/settings', async (req, res) => {
 
     if (azureEndpoint) await dbQuery.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['azureEndpoint', azureEndpoint]);
     if (azureDeployment) await dbQuery.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['azureDeployment', azureDeployment]);
+    if (googleClientId !== undefined) await dbQuery.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['googleClientId', googleClientId.trim()]);
 
     res.json({ message: 'Settings saved successfully!' });
   } catch (err) {

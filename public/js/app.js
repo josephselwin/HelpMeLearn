@@ -854,6 +854,10 @@ async function fetchSettings() {
     const res = await fetch('/api/settings');
     const settings = await res.json();
     document.getElementById('setting-provider').value = settings.provider || 'offline';
+    if (settings.googleClientId) {
+      document.getElementById('setting-google-client-id').value = settings.googleClientId;
+      window.GOOGLE_CLIENT_ID = settings.googleClientId;
+    }
     toggleProviderSettings();
   } catch (e) {
     console.error('Settings fetch error:', e);
@@ -866,17 +870,23 @@ async function saveSettings(e) {
   const apiKey = document.getElementById('setting-apikey').value;
   const azureEndpoint = document.getElementById('setting-azure-endpoint').value;
   const azureDeployment = document.getElementById('setting-azure-deployment').value;
+  const googleClientId = document.getElementById('setting-google-client-id').value;
 
   try {
     const res = await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, apiKey, azureEndpoint, azureDeployment })
+      body: JSON.stringify({ provider, apiKey, azureEndpoint, azureDeployment, googleClientId })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    showToast('AI Settings updated!');
+    if (googleClientId) {
+      window.GOOGLE_CLIENT_ID = googleClientId;
+      initGoogleLogin();
+    }
+
+    showToast('Settings updated successfully!');
     closeSettingsModal();
   } catch (err) {
     showToast(err.message, 'error');
