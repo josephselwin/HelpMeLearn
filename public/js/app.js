@@ -57,14 +57,32 @@ async function checkAuthSession() {
 /**
  * Initialize Google Identity SDK Sign-In Button
  */
-function initGoogleLogin() {
+async function initGoogleLogin() {
   if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
     setTimeout(initGoogleLogin, 500);
     return;
   }
 
+  let clientId = window.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    try {
+      const res = await fetch('/api/auth/config');
+      const data = await res.json();
+      clientId = data.googleClientId;
+      window.GOOGLE_CLIENT_ID = clientId;
+    } catch (e) {}
+  }
+
+  if (!clientId) {
+    document.getElementById('auth-error-banner').classList.remove('hidden');
+    document.getElementById('auth-error-text').innerHTML = 'Google Client ID not configured. Set <strong>GOOGLE_CLIENT_ID</strong> in <code>.env</code> file.';
+    return;
+  }
+
+  document.getElementById('auth-error-banner').classList.add('hidden');
+
   google.accounts.id.initialize({
-    client_id: "1054173871402-sampleclientid.apps.googleusercontent.com", // Generic client_id for JWT verification
+    client_id: clientId,
     callback: handleGoogleCredentialResponse,
     auto_select: false
   });

@@ -4,6 +4,15 @@ const https = require('https');
 const crypto = require('crypto');
 const { dbQuery } = require('../database');
 
+// ----------------------------------------------------
+// 0. Public Auth Config
+// ----------------------------------------------------
+router.get('/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+  });
+});
+
 /**
  * Helper: Verify Google JWT ID Token via Google's tokeninfo API
  */
