@@ -134,6 +134,12 @@ a {
   align-items: center;
   gap: 0.85rem;
   cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.brand:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
 }
 
 .brand-icon {
