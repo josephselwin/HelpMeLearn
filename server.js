@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const { router: authRouter } = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Mount API routes
+app.use('/api/auth', authRouter);
 app.use('/api', apiRoutes);
 
 // Fallback to index.html for single-page app navigation

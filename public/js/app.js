@@ -1,32 +1,138 @@
-/**
- * HelpMeLearn - SPA Frontend Client Logic
- */
-
 // Application State
 const state = {
   documents: [],
   history: [],
+  whitelist: [],
   selectedFile: null,
   activeDoc: null,
   testSession: null,
   timerInterval: null,
   pendingDeleteDocId: null,
-  activeDrawerQuote: null
+  activeDrawerQuote: null,
+  currentUser: null
 };
 
 // DOM Initialization
 document.addEventListener('DOMContentLoaded', () => {
   initDragAndDrop();
-  fetchDocuments();
-  fetchHistory();
-  fetchSettings();
+  checkAuthSession();
 });
+
+/**
+ * Check Authentication Session
+ */
+async function checkAuthSession() {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+
+    if (data.authenticated && data.user) {
+      state.currentUser = data.user;
+      renderUserProfile(data.user);
+      document.getElementById('auth-overlay').classList.add('hidden');
+
+      // Unhide Whitelist Admin tab if user is admin
+      if (data.user.role === 'admin') {
+        document.getElementById('nav-users-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('nav-users-btn').classList.add('hidden');
+      }
+
+      fetchDocuments();
+      fetchHistory();
+      fetchSettings();
+    } else {
+      state.currentUser = null;
+      document.getElementById('auth-overlay').classList.remove('hidden');
+      document.getElementById('user-profile-bar').classList.add('hidden');
+      initGoogleLogin();
+    }
+  } catch (err) {
+    console.error('[Auth Check Error]', err);
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    initGoogleLogin();
+  }
+}
+
+/**
+ * Initialize Google Identity SDK Sign-In Button
+ */
+function initGoogleLogin() {
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+    setTimeout(initGoogleLogin, 500);
+    return;
+  }
+
+  google.accounts.id.initialize({
+    client_id: "1054173871402-sampleclientid.apps.googleusercontent.com", // Generic client_id for JWT verification
+    callback: handleGoogleCredentialResponse,
+    auto_select: false
+  });
+
+  google.accounts.id.renderButton(
+    document.getElementById("google-signin-btn"),
+    { theme: "outline", size: "large", shape: "pill", logo_alignment: "left" }
+  );
+}
+
+/**
+ * Google Sign-In Credential Callback Handler
+ */
+async function handleGoogleCredentialResponse(response) {
+  try {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('auth-error-banner').classList.remove('hidden');
+      document.getElementById('auth-error-text').textContent = data.message || data.error;
+      return;
+    }
+
+    document.getElementById('auth-error-banner').classList.add('hidden');
+    showToast(`Welcome back, ${data.user.name}!`);
+    checkAuthSession();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function renderUserProfile(user) {
+  const profileBar = document.getElementById('user-profile-bar');
+  profileBar.classList.remove('hidden');
+
+  document.getElementById('user-display-name').textContent = user.name;
+  document.getElementById('user-role-badge').textContent = user.role;
+
+  const avatarImg = document.getElementById('user-avatar');
+  if (user.picture) {
+    avatarImg.src = user.picture;
+    avatarImg.style.display = 'block';
+  } else {
+    avatarImg.style.display = 'none';
+  }
+}
+
+async function handleLogout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    showToast('Signed out successfully.');
+    checkAuthSession();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
 
 /**
  * Navigation Tab Switcher
  */
 function switchTab(tabId) {
-  const tabs = ['docs', 'quiz-config', 'quiz-engine', 'quiz-results', 'history'];
+  const tabs = ['docs', 'quiz-config', 'quiz-engine', 'quiz-results', 'history', 'users'];
   tabs.forEach(t => {
     const pane = document.getElementById(`tab-${t}`);
     const navBtn = document.getElementById(`nav-${t}-btn`);
@@ -52,6 +158,8 @@ function switchTab(tabId) {
     populateDocSelect();
   } else if (tabId === 'history') {
     fetchHistory();
+  } else if (tabId === 'users') {
+    fetchWhitelist();
   }
 }
 
@@ -752,6 +860,101 @@ async function saveSettings(e) {
 
     showToast('AI Settings updated!');
     closeSettingsModal();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ----------------------------------------------------
+// Admin Whitelist Management UI
+// ----------------------------------------------------
+async function fetchWhitelist() {
+  try {
+    const res = await fetch('/api/auth/whitelist');
+    const users = await res.json();
+    if (!res.ok) throw new Error(users.error);
+
+    state.whitelist = users;
+    renderWhitelist(users);
+  } catch (err) {
+    console.error('Fetch whitelist error:', err);
+  }
+}
+
+function renderWhitelist(users) {
+  const tbody = document.getElementById('whitelist-tbody');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No users in whitelist. Click "Grant Access to User" to add emails.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const dateStr = new Date(u.created_at).toLocaleDateString();
+    const isSelf = state.currentUser && state.currentUser.email.toLowerCase() === u.email.toLowerCase();
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.email)}</strong></td>
+        <td>${escapeHtml(u.name || '-')}</td>
+        <td><span class="badge ${u.role === 'admin' ? 'text-emerald' : 'text-muted'}">${u.role.toUpperCase()}</span></td>
+        <td>${dateStr}</td>
+        <td>
+          ${!isSelf ? `
+            <button class="btn-icon" onclick="revokeAccess(${u.id}, '${escapeJsString(u.email)}')" title="Revoke Access">
+              <i class="fa-solid fa-user-minus text-rose"></i>
+            </button>
+          ` : '<span class="small text-muted">(You)</span>'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openAddUserModal() {
+  document.getElementById('add-user-modal').classList.remove('hidden');
+}
+
+function closeAddUserModal() {
+  document.getElementById('add-user-modal').classList.add('hidden');
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-name').value = '';
+}
+
+async function handleAddUserSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('new-user-email').value;
+  const name = document.getElementById('new-user-name').value;
+  const role = document.getElementById('new-user-role').value;
+
+  try {
+    const res = await fetch('/api/auth/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, role })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message);
+    closeAddUserModal();
+    fetchWhitelist();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function revokeAccess(userId, email) {
+  if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
+
+  try {
+    const res = await fetch(`/api/auth/whitelist/${userId}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message);
+    fetchWhitelist();
   } catch (err) {
     showToast(err.message, 'error');
   }
